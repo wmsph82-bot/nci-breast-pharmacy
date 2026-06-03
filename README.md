@@ -322,7 +322,7 @@ function drugOpts(s=''){let o='<option value="">اختر الدواء...</option
 // ══════ STATE ══════
 let DB = JSON.parse(localStorage.getItem('nci_db')||'[]');
 let NID = DB.length?Math.max(...DB.map(r=>r.id))+1:1;
-let URL_ = localStorage.getItem('nci_url')||'https://script.google.com/macros/s/AKfycbyNTj8HqlnnTFs01AVFJrevNC7s_pgzK9BPZbsOVpqiFi1GRQe8LAfsO3XlUogOEEdrHw/exec';
+let URL_ = localStorage.getItem('nci_url')||'https://script.google.com/macros/s/AKfycbwD936Q-d_Ma_-rQS50BdBZVNUIW150U8aI0_A33_JuwEZ9tjhvVyprP0fsvDYFt1LvUw/exec';
 let dc = 0;
 
 function saveL(){localStorage.setItem('nci_db',JSON.stringify(DB));}
@@ -331,7 +331,7 @@ function saveL(){localStorage.setItem('nci_db',JSON.stringify(DB));}
 window.onload=function(){
   if(localStorage.getItem('nci_rdy')){
     document.getElementById('setup').style.display='none';
-    URL_=localStorage.getItem('nci_url')||'https://script.google.com/macros/s/AKfycbyNTj8HqlnnTFs01AVFJrevNC7s_pgzK9BPZbsOVpqiFi1GRQe8LAfsO3XlUogOEEdrHw/exec';
+    URL_=localStorage.getItem('nci_url')||'https://script.google.com/macros/s/AKfycbwD936Q-d_Ma_-rQS50BdBZVNUIW150U8aI0_A33_JuwEZ9tjhvVyprP0fsvDYFt1LvUw/exec';
     if(URL_) document.getElementById('set_url').value=URL_;
   }
   initEntry(); updateSt();
