@@ -176,6 +176,48 @@ tbody td{padding:8px 11px;vertical-align:middle;}
         <textarea id="e_notes" rows="2" placeholder="أي ملاحظات..." style="resize:vertical;border:1.5px solid var(--border);border-radius:8px;padding:8px;font-family:'Tajawal',sans-serif;background:var(--bg);outline:none;font-size:.88rem;"></textarea>
       </div>
     </div>
+
+    <!-- ZOLADEX SECTION -->
+    <div style="padding:0 18px 16px;border-top:2px dashed #fde8ec;margin-top:2px;padding-top:12px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <label class="sw"><input type="checkbox" id="zol_toggle" onchange="toggleZol()"><span class="sl"></span></label>
+        <span style="font-size:.9rem;font-weight:700;color:var(--rose)">💉 Zoladex — هل تم الصرف أو يوجد ملاحظة؟</span>
+      </div>
+      <div id="zol_fields" style="display:none;background:#fff8f9;border:1.5px solid #fde8ec;border-radius:10px;padding:12px">
+        <div class="fg">
+          <div class="f">
+            <label>رقم مريض Zoladex</label>
+            <input type="text" id="zol_pid" placeholder="رقم المريض في الشيت">
+          </div>
+          <div class="f">
+            <label>حالة الصرف</label>
+            <select id="zol_status" onchange="onZolStatus()">
+              <option value="">اختر...</option>
+              <option value="done">✅ تم الصرف</option>
+              <option value="not_done">❌ لم يتم الصرف</option>
+            </select>
+          </div>
+          <div class="f" id="zol_qty_wrap" style="display:none">
+            <label>الكمية المصروفة</label>
+            <select id="zol_qty">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+          <div class="f s2" id="zol_reason_wrap" style="display:none">
+            <label>سبب عدم الصرف</label>
+            <select id="zol_reason">
+              <option value="">اختر السبب...</option>
+              <option>مشكلة قرار</option>
+              <option>لم يتم التجديد</option>
+              <option>انتظار قرار جديد — أول مرة</option>
+              <option>لا يوجد رصيد</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -322,7 +364,7 @@ function drugOpts(s=''){let o='<option value="">اختر الدواء...</option
 // ══════ STATE ══════
 let DB = JSON.parse(localStorage.getItem('nci_db')||'[]');
 let NID = DB.length?Math.max(...DB.map(r=>r.id))+1:1;
-const FIXED_URL='https://script.google.com/macros/s/AKfycbwD936Q-d_Ma_-rQS50BdBZVNUIW150U8aI0_A33_JuwEZ9tjhvVyprP0fsvDYFt1LvUw/exec';
+const FIXED_URL='https://script.google.com/macros/s/AKfycbzbIDLA5px2l7orGf1LU9L_l-S1MaZsQw73aEXs0gPqbvsYLFraVek6iUbzLn6-AGqsmQ/exec';
 let URL_ = FIXED_URL;
 localStorage.setItem('nci_url', FIXED_URL);
 let dc = 0;
@@ -409,6 +451,12 @@ async function submitEntry(){
     pharm_disp:document.getElementById('e_pdisp').value.trim()||'',
     zoladex:document.getElementById('zt').checked?{pid:document.getElementById('z_pid').value.trim(),note:document.getElementById('z_note').value.trim()}:null,
     notes:document.getElementById('e_notes').value.trim(),
+    zoladex: document.getElementById('zol_toggle').checked ? {
+      pid: document.getElementById('zol_pid').value.trim(),
+      status: document.getElementById('zol_status').value,
+      qty: document.getElementById('zol_qty').value,
+      reason: document.getElementById('zol_reason').value
+    } : null,
     sent:false
   };
   DB.push(rec); saveL();
@@ -460,8 +508,11 @@ function clearEntry(){
   ['e_date','e_name','e_fileno','e_pharm_in','e_notes','e_tdisp','e_pdisp','z_pid','z_note'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('e_fin').selectedIndex=0;
   document.getElementById('drugRows').innerHTML=''; dc=0; addDrug();
-  document.getElementById('zt').checked=false;
-  document.getElementById('zf').style.display='none';
+  document.getElementById('zol_toggle').checked=false;
+  document.getElementById('zol_fields').style.display='none';
+  ['zol_pid','zol_status','zol_qty','zol_reason'].forEach(id=>{const e=document.getElementById(id);if(e&&e.tagName==='SELECT')e.selectedIndex=0;else if(e)e.value='';});
+  document.getElementById('zol_qty_wrap').style.display='none';
+  document.getElementById('zol_reason_wrap').style.display='none';
   document.getElementById('e_date').valueAsDate=new Date();
   const n=new Date(); document.getElementById('e_tin').value=pad(n.getHours())+':'+pad(n.getMinutes());
 }
@@ -494,11 +545,40 @@ function renderD(){
           ${getU(d.drug).map(u=>`<option${u===d.unit?' selected':''}>${u}</option>`).join('')}
         </select>
       </div>`).join('');
+    // Zoladex section for dispense
+    const zolHtml = r.zoladex ? `
+      <div style="background:#fff8f9;border:1.5px solid #fde8ec;border-radius:7px;padding:8px;margin-top:6px">
+        <div style="font-size:.77rem;font-weight:700;color:var(--rose);margin-bottom:6px">💉 Zoladex — #${r.zoladex.pid||'—'}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select style="border:1.5px solid #fde8ec;border-radius:6px;padding:3px 7px;font-size:.78rem"
+            onchange="updZol(${r.id},'dispensed',this.value)">
+            <option value="">تم الصرف؟</option>
+            <option value="yes" ${r.zoladex.dispensed===true?'selected':''}>✅ تم الصرف</option>
+            <option value="no" ${r.zoladex.dispensed===false?'selected':''}>❌ لم يتم</option>
+          </select>
+          ${r.zoladex.dispensed===true ? `
+            <select style="border:1.5px solid #fde8ec;border-radius:6px;padding:3px 7px;font-size:.78rem"
+              onchange="updZol(${r.id},'qty',this.value)">
+              <option value="1" ${r.zoladex.qty==='1'||!r.zoladex.qty?'selected':''}>كمية: 1</option>
+              <option value="2" ${r.zoladex.qty==='2'?'selected':''}>كمية: 2</option>
+              <option value="3" ${r.zoladex.qty==='3'?'selected':''}>كمية: 3</option>
+            </select>` : ''}
+          ${r.zoladex.dispensed===false ? `
+            <select style="border:1.5px solid #fde8ec;border-radius:6px;padding:3px 7px;font-size:.78rem"
+              onchange="updZol(${r.id},'reason',this.value)">
+              <option value="">سبب عدم الصرف...</option>
+              <option ${r.zoladex.reason==='مشكلة قرار'?'selected':''}>مشكلة قرار</option>
+              <option ${r.zoladex.reason==='لم يتم التجديد'?'selected':''}>لم يتم التجديد</option>
+              <option ${r.zoladex.reason==='انتظار قرار جديد — أول مرة'?'selected':''}>انتظار قرار جديد — أول مرة</option>
+              <option ${r.zoladex.reason==='لا يوجد رصيد'?'selected':''}>لا يوجد رصيد</option>
+            </select>` : ''}
+        </div>
+      </div>` : '';
     return `<tr style="${pend?'background:#fffbeb':''}">
       <td><small style="color:var(--muted)">${r.id}</small></td>
       <td><b>${r.date}</b></td><td>${r.name}</td><td><small>${r.fileno}</small></td>
       <td>${r.drugs.map(d=>`<small>${d.drug}</small>`).join('<br>')}</td>
-      <td>${drugsHtml}</td>
+      <td>${drugsHtml}${zolHtml||''}</td>
       <td><input type="time" value="${r.time_disp||''}" onchange="updF(${r.id},'time_disp',this.value)"
         style="border:1.5px solid var(--border);border-radius:6px;padding:4px 6px;font-size:.8rem"></td>
       <td><input type="text" value="${r.pharm_disp||''}" list="plist" placeholder="اسم الصيدلي"
@@ -524,6 +604,34 @@ function updF(rid,field,val){
   if(URL_&&r.sent){
     const p=new URLSearchParams({action:'updateDispense',record_id:rid,drug_idx:0,qty:r.drugs[0]?.qty||'',unit:r.drugs[0]?.unit||'',time_disp:r.time_disp,pharm_disp:r.pharm_disp});
     fetch(URL_+'?'+p.toString()).catch(()=>{});
+  }
+  toast('💾 تم');
+}
+
+// ══════ ZOLADEX ENTRY ══════
+function toggleZol(){
+  const on=document.getElementById('zol_toggle').checked;
+  document.getElementById('zol_fields').style.display=on?'':'none';
+  if(!on){ document.getElementById('zol_status').value=''; onZolStatus(); }
+}
+function onZolStatus(){
+  const v=document.getElementById('zol_status').value;
+  document.getElementById('zol_qty_wrap').style.display=v==='done'?'':'none';
+  document.getElementById('zol_reason_wrap').style.display=v==='not_done'?'':'none';
+}
+
+// ══════ ZOLADEX UPDATE ══════
+function updZol(rid, field, val) {
+  const r=DB.find(x=>x.id===rid); if(!r||!r.zoladex) return;
+  if(field==='dispensed') r.zoladex.dispensed = val==='yes'?true:val==='no'?false:null;
+  else r.zoladex[field]=val;
+  saveL();
+  // sync to sheet
+  if(URL_&&r.sent){
+    const p=new URLSearchParams({action:'updateZoladex',record_id:rid,
+      dispensed:r.zoladex.dispensed?'yes':'no',
+      qty:r.zoladex.qty||'',reason:r.zoladex.reason||''});
+    const img=new Image(); img.src=URL_+'?'+p.toString();
   }
   toast('💾 تم');
 }
@@ -569,9 +677,9 @@ function clearRF(){['rs_q','rs_d'].forEach(id=>document.getElementById(id).value
 
 // ══════ EXPORT ══════
 function buildCSV(recs){
-  const h=['التاريخ','اسم المريضة','رقم الملف','المعاملة المالية','الصيدلي (إدخال)','وقت الإدخال','الدواء','الكمية','الوحدة','وقت الصرف','الصيدلي (صرف)','Zoladex','رقم Zoladex','ملاحظات'].join('\t');
+  const h=['التاريخ','اسم المريضة','رقم الملف','المعاملة المالية','الصيدلي (إدخال)','وقت الإدخال','الدواء','الكمية','الوحدة','وقت الصرف','الصيدلي (صرف)','Zoladex','رقم Zoladex','حالة Zoladex','كمية Zoladex','سبب عدم الصرف','ملاحظات'].join('\t');
   const rows=[];
-  recs.forEach(r=>{r.drugs.forEach(d=>{rows.push([r.date,r.name,r.fileno,r.fin,r.pharm_in,r.time_in,d.drug,d.qty||'',d.unit||'',r.time_disp||'',r.pharm_disp||'',r.zoladex?'نعم':'لا',r.zoladex?.pid||'',r.notes||''].join('\t'));});});
+  recs.forEach(r=>{r.drugs.forEach(d=>{rows.push([r.date,r.name,r.fileno,r.fin,r.pharm_in,r.time_in,d.drug,d.qty||'',d.unit||'',r.time_disp||'',r.pharm_disp||'',r.zoladex?'نعم':'لا',r.zoladex?.pid||'',r.zoladex?.status==='done'?'تم الصرف':r.zoladex?.status==='not_done'?'لم يتم':'',r.zoladex?.qty||'',r.zoladex?.reason||'',r.notes||''].join('\t'));});});
   return[h,...rows].join('\n');
 }
 function doExport(){const f=document.getElementById('xf').value,t=document.getElementById('xt').value;const recs=DB.filter(r=>{if(f&&r.date<f)return false;if(t&&r.date>t)return false;return true;});if(!recs.length){toast('⚠️ لا يوجد بيانات');return;}dl(buildCSV(recs),`NCI_${f||'all'}_${t||'all'}.tsv`);}
